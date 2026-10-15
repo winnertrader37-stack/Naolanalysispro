@@ -1,45 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
 
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <meta name="theme-color" content="#080b16">
+    <meta
+        name="theme-color"
+        content="#080b16"
+    >
 
-    <meta name="description"
-          content="Naol Analyser - Image metadata, camera information and GPS analysis.">
+    <meta
+        name="description"
+        content="Naol Analyser helps you inspect image metadata, camera information, capture dates and available GPS coordinates."
+    >
 
     <title>Naol Analyser | Smart Image Analysis</title>
 
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <link rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-          rel="stylesheet">
+    <!-- Website stylesheet -->
+    <link rel="stylesheet" href="./style.css">
 
     <!-- Image metadata library -->
-    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"
+    ></script>
 
-    <!-- Website styles -->
-    <link rel="stylesheet" href="style.css">
-
-    <!-- Website functionality -->
-    <script src="script.js" defer></script>
+    <!-- Main application -->
+    <script src="./script.js" defer></script>
 </head>
 
 <body>
 
+    <!-- =====================================
+         NAVIGATION
+    ====================================== -->
+
     <header class="navbar">
 
-        <a class="brand" href="#home">
+        <a href="./" class="brand">
 
-            <div class="brand-icon">N</div>
+            <span class="brand-icon">N</span>
 
             <span>
                 Naol <span class="brand-highlight">Analyser</span>
@@ -47,62 +59,81 @@
 
         </a>
 
-        <span class="nav-status">
+        <div class="nav-status">
+
             <span class="status-dot"></span>
-            Image Analyzer
-        </span>
+
+            <span>IMAGE ANALYSIS</span>
+
+        </div>
 
     </header>
 
 
-    <main class="container" id="home">
+    <main class="container">
 
-        <!-- HERO -->
+        <!-- =====================================
+             HERO
+        ====================================== -->
 
         <section class="hero">
 
-            <div class="hero-badge">
+            <span class="hero-badge">
                 ✦ SMART IMAGE TECHNOLOGY
-            </div>
+            </span>
 
             <h1>
                 Discover more<br>
+
                 <span class="gradient-text">
                     behind every image.
                 </span>
             </h1>
 
             <p>
-                Upload or capture a photo to explore its
-                dimensions, camera details, capture date
-                and available GPS information.
+                Explore image details, camera information,
+                capture dates and available GPS metadata
+                in one simple workspace.
             </p>
 
         </section>
 
 
-        <!-- UPLOAD CARD -->
+        <!-- =====================================
+             IMAGE UPLOAD
+        ====================================== -->
 
-        <section class="main-card">
+        <section class="main-card" id="uploadSection">
 
             <div class="section-heading">
 
-                <div class="section-icon">▧</div>
+                <div class="section-icon">
+                    ▧
+                </div>
 
                 <div>
+
                     <h2>Analyse Your Image</h2>
 
                     <p>
-                        Select a photo to begin automatic analysis.
+                        Upload a photo to automatically inspect its details.
                     </p>
+
                 </div>
 
             </div>
 
 
-            <!-- Upload image -->
+            <!-- Upload area -->
 
-            <label for="imageInput" class="upload-area" id="uploadArea">
+            <label
+                for="imageInput"
+                class="upload-area"
+                id="uploadArea"
+                tabindex="0"
+                role="button"
+                aria-label="Choose an image to analyse"
+            >
 
                 <div class="upload-icon">
                     ↑
@@ -111,7 +142,7 @@
                 <h3>Upload your photo</h3>
 
                 <p>
-                    Choose an image from your device.
+                    Choose an image from your device
                 </p>
 
                 <span class="upload-button">
@@ -119,10 +150,13 @@
                 </span>
 
                 <span class="file-support">
-                    JPG · JPEG · PNG · WEBP
+                    JPG · JPEG · PNG · WEBP · HEIC*
                 </span>
 
             </label>
+
+
+            <!-- Normal image picker -->
 
             <input
                 type="file"
@@ -132,173 +166,194 @@
             >
 
 
-            <!-- Camera capture -->
+            <!-- Camera input -->
+
+            <input
+                type="file"
+                id="cameraInput"
+                accept="image/*"
+                capture="environment"
+                hidden
+            >
+
+
+            <!-- Camera action -->
 
             <div class="camera-action">
 
                 <div class="camera-copy">
 
-                    <strong>Take a new photo</strong>
+                    <strong>Capture a New Photo</strong>
 
                     <p>
-                        Open your phone camera.
+                        Open your device camera to take a picture.
                     </p>
 
                 </div>
 
                 <button
                     type="button"
+                    class="camera-button"
                     id="captureButton"
-                    class="camera-button">
-
-                    <span>📸</span>
-                    Capture Photo
-
-                </button>
-
-                <input
-                    type="file"
-                    id="cameraInput"
-                    accept="image/*"
-                    capture="environment"
-                    hidden
                 >
+                    📷 Capture Photo
+                </button>
 
             </div>
 
 
+            <!-- Privacy note -->
+
             <p class="privacy-note">
-                🔒 Image analysis runs in your browser.
+                🔒 Your image is processed in your browser.
+                No image upload to our server is required.
             </p>
 
 
-            <!-- ANALYSIS STATUS -->
+            <!-- Analysis status -->
 
             <div
-                id="analysisStatus"
                 class="analysis-status"
+                id="analysisStatus"
                 role="status"
                 aria-live="polite"
-                hidden>
+                hidden
+            >
 
-                <span class="loading-spinner"
-                      id="loadingSpinner"></span>
+                <span
+                    class="loading-spinner"
+                    id="loadingSpinner"
+                    hidden
+                ></span>
 
                 <span id="statusText">
-                    Preparing image...
+                    Preparing image analysis...
                 </span>
 
             </div>
 
 
-            <!-- PREVIEW -->
+            <!-- =====================================
+                 IMAGE PREVIEW
+            ====================================== -->
 
             <section
-                id="previewSection"
                 class="preview-section"
-                hidden>
+                id="previewSection"
+                hidden
+            >
 
                 <div class="preview-heading">
 
-                    <h3>Selected Image</h3>
+                    <h3>Image Preview</h3>
 
                     <button
                         type="button"
+                        class="text-button"
                         id="removeImage"
-                        class="text-button">
-
-                        Remove
-
+                    >
+                        Remove Image
                     </button>
 
                 </div>
+
 
                 <div class="preview-frame">
 
                     <img
                         id="imagePreview"
-                        src=""
                         alt="Selected image preview"
                     >
 
                 </div>
 
+
                 <div class="selected-file">
 
-                    <div class="file-icon">IMG</div>
+                    <div class="file-icon">
+                        IMG
+                    </div>
 
                     <div class="file-details">
 
-                        <strong id="fileName">—</strong>
+                        <strong id="fileName">
+                            Image selected
+                        </strong>
 
-                        <span id="fileSize">—</span>
+                        <span id="fileSize">
+                            Waiting for image
+                        </span>
 
                     </div>
 
                     <span class="file-ready">
-                        SELECTED
+                        READY
                     </span>
 
                 </div>
-
-                <button
-                    type="button"
-                    id="viewResultsButton"
-                    class="results-button">
-
-                    View Image Analysis ↓
-
-                </button>
 
             </section>
 
         </section>
 
 
-        <!-- RESULTS -->
+        <!-- =====================================
+             ANALYSIS RESULTS
+        ====================================== -->
 
         <section
+            class="results-section"
             id="resultsSection"
-            class="results-section">
+        >
 
             <div class="results-header">
 
                 <div>
+
                     <span class="eyebrow">
-                        ANALYSIS RESULTS
+                        IMAGE REPORT
                     </span>
 
-                    <h2>Image Details</h2>
+                    <h2>Image Information</h2>
 
                     <p>
-                        Information extracted from the selected file.
+                        Details extracted from your selected image.
                     </p>
+
                 </div>
 
-                <span class="results-badge" id="resultsBadge">
+                <span
+                    class="results-badge"
+                    id="resultsBadge"
+                >
                     Waiting
                 </span>
 
             </div>
 
 
-            <!-- BASIC IMAGE INFORMATION -->
+            <!-- =====================================
+                 BASIC INFORMATION
+            ====================================== -->
 
             <section class="information-section">
 
                 <div class="section-heading">
 
-                    <div class="section-icon">▤</div>
+                    <div class="section-icon">
+                        ▤
+                    </div>
 
                     <div>
-                        <h2>Image Information</h2>
 
-                        <p>
-                            Basic file properties.
-                        </p>
+                        <h2>Basic Information</h2>
+
+                        <p>Essential image properties</p>
+
                     </div>
 
                 </div>
+
 
                 <div class="info-grid">
 
@@ -308,9 +363,12 @@
                             FILE NAME
                         </span>
 
-                        <strong id="infoFileName">—</strong>
+                        <strong id="infoFileName">
+                            —
+                        </strong>
 
                     </article>
+
 
                     <article class="info-card">
 
@@ -318,9 +376,12 @@
                             FILE SIZE
                         </span>
 
-                        <strong id="infoFileSize">—</strong>
+                        <strong id="infoFileSize">
+                            —
+                        </strong>
 
                     </article>
+
 
                     <article class="info-card">
 
@@ -328,9 +389,12 @@
                             DIMENSIONS
                         </span>
 
-                        <strong id="infoDimensions">—</strong>
+                        <strong id="infoDimensions">
+                            —
+                        </strong>
 
                     </article>
+
 
                     <article class="info-card">
 
@@ -338,27 +402,35 @@
                             FILE TYPE
                         </span>
 
-                        <strong id="infoFileType">—</strong>
+                        <strong id="infoFileType">
+                            —
+                        </strong>
 
                     </article>
+
 
                     <article class="info-card">
 
                         <span class="info-label">
-                            LAST MODIFIED
+                            FILE MODIFIED
                         </span>
 
-                        <strong id="infoModified">—</strong>
+                        <strong id="infoModified">
+                            —
+                        </strong>
 
                     </article>
+
 
                     <article class="info-card">
 
                         <span class="info-label">
-                            IMAGE ORIENTATION
+                            ORIENTATION
                         </span>
 
-                        <strong id="infoBasicOrientation">—</strong>
+                        <strong id="infoBasicOrientation">
+                            —
+                        </strong>
 
                     </article>
 
@@ -367,64 +439,127 @@
             </section>
 
 
-            <!-- CAMERA INFORMATION -->
+            <!-- =====================================
+                 CAMERA INFORMATION
+            ====================================== -->
 
             <section class="information-section">
 
                 <div class="section-heading">
 
-                    <div class="section-icon">📷</div>
+                    <div class="section-icon">
+                        📷
+                    </div>
 
                     <div>
+
                         <h2>Camera Information</h2>
 
-                        <p>
-                            Camera details stored in the image.
-                        </p>
+                        <p>Camera and photographic settings</p>
+
                     </div>
 
                 </div>
 
+
                 <div class="details-card">
 
                     <div class="detail-row">
-                        <span>Camera Manufacturer</span>
-                        <strong id="cameraMake">—</strong>
+
+                        <span>Manufacturer</span>
+
+                        <strong id="cameraMake">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Camera Model</span>
-                        <strong id="cameraModel">—</strong>
+
+                        <strong id="cameraModel">
+                            —
+                        </strong>
+
                     </div>
 
-                    <div class="detail-row">
-                        <span>Date Captured</span>
-                        <strong id="captureDate">—</strong>
-                    </div>
 
                     <div class="detail-row">
+
+                        <span>Capture Date</span>
+
+                        <strong id="captureDate">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail-row">
+
                         <span>Image Orientation</span>
-                        <strong id="imageOrientation">—</strong>
+
+                        <strong id="imageOrientation">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Exposure Time</span>
-                        <strong id="exposureTime">—</strong>
+
+                        <strong id="exposureTime">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Aperture</span>
-                        <strong id="aperture">—</strong>
+
+                        <strong id="aperture">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>ISO</span>
-                        <strong id="isoValue">—</strong>
+
+                        <strong id="isoValue">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Focal Length</span>
-                        <strong id="focalLength">—</strong>
+
+                        <strong id="focalLength">
+                            —
+                        </strong>
+
+                    </div>
+
+
+                    <div class="detail-row">
+
+                        <span>Metadata Status</span>
+
+                        <strong id="cameraMetadataStatus">
+                            Waiting for image
+                        </strong>
+
                     </div>
 
                 </div>
@@ -432,92 +567,134 @@
             </section>
 
 
-            <!-- GPS INFORMATION -->
+            <!-- =====================================
+                 GPS INFORMATION
+            ====================================== -->
 
             <section class="information-section">
 
                 <div class="section-heading">
 
-                    <div class="section-icon">📍</div>
+                    <div class="section-icon">
+                        🌐
+                    </div>
 
                     <div>
+
                         <h2>GPS Location</h2>
 
-                        <p>
-                            Location data embedded in the photo.
-                        </p>
+                        <p>Geographic coordinates recorded in the image</p>
+
                     </div>
 
                 </div>
 
+
                 <div class="details-card">
 
                     <div class="detail-row">
+
                         <span>GPS Status</span>
+
                         <strong id="gpsStatus">
                             Waiting for image
                         </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Latitude</span>
-                        <strong id="gpsLatitude">—</strong>
+
+                        <strong id="gpsLatitude">
+                            —
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Longitude</span>
-                        <strong id="gpsLongitude">—</strong>
+
+                        <strong id="gpsLongitude">
+                            —
+                        </strong>
+
                     </div>
+
 
                     <div class="detail-row">
+
                         <span>Altitude</span>
-                        <strong id="gpsAltitude">—</strong>
+
+                        <strong id="gpsAltitude">
+                            —
+                        </strong>
+
                     </div>
 
-                    <p id="gpsMessage" class="gps-note">
-                        GPS information will appear here
-                        if the image contains location metadata.
+
+                    <div class="detail-row">
+
+                        <span>GPS Metadata</span>
+
+                        <strong id="gpsMetadataStatus">
+                            Waiting for image
+                        </strong>
+
+                    </div>
+
+
+                    <p
+                        class="gps-note"
+                        id="gpsMessage"
+                        aria-live="polite"
+                    >
+                        Upload an image to check whether GPS coordinates
+                        are recorded in its metadata.
                     </p>
 
                 </div>
 
 
-                <!-- MAP VIEW: appears only when GPS is found -->
+                <!-- MAP -->
 
                 <div
-                    id="mapSection"
                     class="map-section"
-                    hidden>
+                    id="mapSection"
+                    hidden
+                >
 
                     <div class="map-heading">
 
-                        <div>
-                            <h3>Location Map</h3>
+                        <h3>📍 Map View</h3>
 
-                            <p>
-                                Approximate position from image GPS.
-                            </p>
-                        </div>
+                        <p>
+                            Location recorded in the image metadata.
+                        </p>
 
                     </div>
+
 
                     <iframe
                         id="locationMap"
                         title="Image GPS location map"
                         loading="lazy"
                         referrerpolicy="no-referrer"
-                        src="about:blank">
-                    </iframe>
+                        src="about:blank"
+                    ></iframe>
+
 
                     <a
                         id="openMapLink"
                         class="map-link"
                         href="#"
                         target="_blank"
-                        rel="noopener noreferrer">
-
-                        Open location in map ↗
-
+                        rel="noopener noreferrer"
+                    >
+                        Open Full Map ↗
                     </a>
 
                 </div>
@@ -525,68 +702,105 @@
             </section>
 
 
-            <!-- METADATA STATUS -->
+            <!-- =====================================
+                 ANALYSIS STATUS
+            ====================================== -->
 
             <section class="information-section">
 
                 <div class="section-heading">
 
-                    <div class="section-icon">✓</div>
+                    <div class="section-icon">
+                        ✓
+                    </div>
 
                     <div>
-                        <h2>Analysis Summary</h2>
 
-                        <p>
-                            Status of the image analysis.
-                        </p>
+                        <h2>Analysis Status</h2>
+
+                        <p>Current processing information</p>
+
                     </div>
 
                 </div>
+
 
                 <div class="details-card">
 
                     <div class="detail-row">
-                        <span>Image Loaded</span>
-                        <strong id="imageLoadStatus">Waiting</strong>
+
+                        <span>Image Processing</span>
+
+                        <strong id="imageLoadStatus">
+                            Waiting
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>Camera Metadata</span>
-                        <strong id="cameraMetadataStatus">Waiting</strong>
+
+                        <strong id="cameraMetadataStatus">
+                            Waiting
+                        </strong>
+
                     </div>
 
+
                     <div class="detail-row">
+
                         <span>GPS Metadata</span>
-                        <strong id="gpsMetadataStatus">Waiting</strong>
+
+                        <strong id="gpsMetadataStatus">
+                            Waiting
+                        </strong>
+
                     </div>
 
                 </div>
+
+
+                <button
+                    type="button"
+                    class="results-button"
+                    id="viewResultsButton"
+                >
+                    View Image Information ↓
+                </button>
 
             </section>
 
         </section>
 
-
-        <!-- FOOTER -->
-
-        <footer class="footer">
-
-            <a href="#home" class="footer-brand">
-                Naol Analyser
-            </a>
-
-            <p>
-                Smart image analysis in one place.
-            </p>
-
-            <span>
-                © 2026 Naol Analyser
-            </span>
-
-        </footer>
-
     </main>
 
-</body>
 
+    <!-- =====================================
+         FOOTER
+    ====================================== -->
+
+    <footer class="footer">
+
+        <a href="./" class="footer-brand">
+            Naol Analyser
+        </a>
+
+        <p>
+            Smart Image Analysis Workspace
+        </p>
+
+        <span>
+            Image Metadata · Camera Details · GPS · Map View
+        </span>
+
+        <span>
+            © 2026 Naol Analyser
+        </span>
+
+    </footer>
+
+
+</body>
 </html>
