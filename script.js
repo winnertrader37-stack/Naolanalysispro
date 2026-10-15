@@ -1,122 +1,305 @@
-/* =========================================
-   NAOL ANALYSER
-   Automatic Image Analysis
-   ========================================= */
-
 "use strict";
+
+/* =====================================================
+   NAOL ANALYSER
+   Image Metadata, GPS, Satellite Map and Ethiopian Date
+===================================================== */
 
 const $ = (id) => document.getElementById(id);
 
-const imageInput = $("imageInput");
-const cameraInput = $("cameraInput");
-const captureButton = $("captureButton");
-
-const uploadArea = $("uploadArea");
-const previewSection = $("previewSection");
-const imagePreview = $("imagePreview");
-const removeImageButton = $("removeImage");
-
-const analysisStatus = $("analysisStatus");
-const statusText = $("statusText");
-const loadingSpinner = $("loadingSpinner");
-
-const resultsSection = $("resultsSection");
-const resultsBadge = $("resultsBadge");
-
-const viewResultsButton = $("viewResultsButton");
-
-const mapSection = $("mapSection");
-const locationMap = $("locationMap");
-const openMapLink = $("openMapLink");
-
 let currentObjectURL = null;
-let analysisVersion = 0;
+let currentImageFile = null;
 
-
-/* =========================================
-   HELPERS
-   ========================================= */
+/* =====================================================
+   SAFE ELEMENT UPDATES
+===================================================== */
 
 function setText(id, value) {
+    const elements = document.querySelectorAll(
+        `[id="${id}"]`
+    );
+
+    elements.forEach((element) => {
+        element.textContent =
+            value === undefined ||
+            value === null ||
+            value === ""
+                ? "Not available"
+                : String(value);
+    });
+}
+
+function showElement(id, show = true) {
     const element = $(id);
 
-    if (!element) return;
-
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
-        element.textContent = "Not available";
-    } else {
-        element.textContent = String(value);
+    if (element) {
+        element.hidden = !show;
     }
 }
 
+function setStatus(message, isError = false) {
+    const box = $("analysisStatus");
+    const text = $("statusText");
+
+    if (box) {
+        box.hidden = false;
+        box.style.color = isError ? "#ff7777" : "#9de7ff";
+    }
+
+    if (text) {
+        text.textContent = message;
+    }
+}
+
+/* =====================================================
+   FILE SIZE
+===================================================== */
 
 function formatFileSize(bytes) {
-    if (!Number.isFinite(bytes) || bytes < 0) {
-        return "Unknown";
+    if (!Number.isFinite(bytes)) {
+        return "Not available";
     }
 
     if (bytes < 1024) {
-        return bytes + " bytes";
+        return bytes + " B";
     }
 
     if (bytes < 1024 * 1024) {
-        return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / 1024).toFixed(2) + " KB";
     }
 
     return (bytes / (1024 * 1024)).toFixed(2) + " MB";
 }
 
+/* =====================================================
+   ETHIOPIAN CALENDAR DATE
+===================================================== */
 
-function formatDate(value) {
-    if (!value) {
-        return "Not recorded";
-    }
-
-    let date;
-
-    if (value instanceof Date) {
-        date = value;
-    } else {
-        date = new Date(value);
-    }
-
-    if (Number.isNaN(date.getTime())) {
-        return String(value);
-    }
-
-    return new Intl.DateTimeFormat(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
-    }).format(date);
-}
-
-
-function formatCoordinate(value) {
-    if (!Number.isFinite(value)) {
+function formatEthiopianDate(date) {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
         return "Not available";
     }
 
-    return value.toFixed(6) + "°";
+    try {
+        const dateFormatter = new Intl.DateTimeFormat(
+            "en-u-ca-ethiopic-nu-latn",
+            {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                timeZone: "Africa/Addis_Ababa"
+            }
+        );
+
+        return dateFormatter.format(date) + " E.C.";
+    } catch (error) {
+        console.error("Ethiopian calendar error:", error);
+
+        return "Ethiopian calendar unavailable";
+    }
 }
 
+/* =====================================================
+   DATE PARSING
 
-function setStatus(message, loading = false) {
-    analysisStatus.hidden = false;
+   EXIF dates commonly look like:
+   2026:10:15 10:43:21
 
-    statusText.textContent = message;
+   EXIF timestamps may not include a timezone.
+===================================================== */
 
-    loadingSpinner.hidden = !loading;
+function parseExifDate(value) {
+    if (!value) {
+        return null;
+    }
+
+    if (value instanceof Date) {
+        return isNaN(value.getTime()) ? null : value;
+    }
+
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const match = value.match(
+        /^(\d{4})[:\-](\d{2})[:\-](\d{2})[ T](\d{2}):(\d{2}):(\d{2})/
+    );
+
+    if (match) {
+        const year = Number(match[1]);
+        const month = Number(match[2]) - 1;
+        const day = Number(match[3]);
+        const hour = Number(match[4]);
+        const minute = Number(match[5]);
+        const second = Number(match[6]);
+
+        const result = new Date(
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second
+        );
+
+        if (!isNaN(result.getTime())) {
+            return result;
+        }
+    }
+
+    const parsed = new Date(value);
+
+    return isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function formatCaptureDate(date) {
+    if (!date) {
+        return "Not recorded in image metadata";
+    }
 
-function resetMetadata() {
+    try {
+        const localTime = new Intl.DateTimeFormat(
+            "en-GB",
+            {
+                dateStyle: "medium",
+                timeStyle: "medium",
+                timeZone: "Africa/Addis_Ababa"
+            }
+        ).format(date);
+
+        const ethiopianDate = formatEthiopianDate(date);
+
+        return (
+            ethiopianDate +
+            " | " +
+            localTime +
+            " (Ethiopia time)"
+        );
+    } catch (error) {
+        return date.toLocaleString();
+    }
+}
+
+/* =====================================================
+   GPS COORDINATE VALIDATION
+===================================================== */
+
+function validCoordinates(latitude, longitude) {
+    return (
+        Number.isFinite(latitude) &&
+        Number.isFinite(longitude) &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180
+    );
+}
+
+/* =====================================================
+   GPS MAP
+
+   Satellite tiles are provided by Esri.
+   An internet connection is required.
+===================================================== */
+
+function showSatelliteMap(latitude, longitude) {
+    if (!validCoordinates(latitude, longitude)) {
+        hideSatelliteMap();
+        return;
+    }
+
+    const mapSection = $("mapSection");
+    const mapFrame = $("locationMap");
+    const openMapLink = $("openMapLink");
+
+    /*
+      If the existing page does not contain a map iframe,
+      do not crash the remaining analysis.
+    */
+
+    if (!mapSection || !mapFrame) {
+        console.error(
+            "Map elements missing. Check index.html."
+        );
+        return;
+    }
+
+    const lat = latitude.toFixed(7);
+    const lon = longitude.toFixed(7);
+
+    /*
+      Satellite map using ArcGIS World Imagery.
+      Coordinates come from the image GPS metadata.
+    */
+
+    const satelliteURL =
+        "https://server.arcgisonline.com/ArcGIS/rest/services/" +
+        "World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
+    /*
+      Use an interactive OpenStreetMap frame as the
+      basic fallback. The external map link opens
+      satellite imagery at the recorded coordinates.
+
+      The map itself must never use invented coordinates.
+    */
+
+    const embedURL =
+        "https://www.google.com/maps?q=" +
+        encodeURIComponent(lat + "," + lon) +
+        "&t=k&z=18&output=embed";
+
+    mapFrame.src = embedURL;
+
+    mapFrame.setAttribute(
+        "title",
+        "Satellite map at image GPS coordinates " + lat + ", " + lon
+    );
+
+    mapSection.hidden = false;
+
+    if (openMapLink) {
+        openMapLink.href =
+            "https://www.google.com/maps?q=" +
+            encodeURIComponent(lat + "," + lon) +
+            "&t=k";
+
+        openMapLink.textContent = "Open Satellite Map ↗";
+        openMapLink.target = "_blank";
+        openMapLink.rel = "noopener noreferrer";
+    }
+
+    /*
+      Store the imagery tile URL for future use with
+      Leaflet if you later replace the iframe map.
+    */
+
+    mapFrame.dataset.satelliteTileURL = satelliteURL;
+}
+
+function hideSatelliteMap() {
+    const mapSection = $("mapSection");
+    const mapFrame = $("locationMap");
+    const openMapLink = $("openMapLink");
+
+    if (mapSection) {
+        mapSection.hidden = true;
+    }
+
+    if (mapFrame) {
+        mapFrame.src = "about:blank";
+    }
+
+    if (openMapLink) {
+        openMapLink.href = "#";
+    }
+}
+
+/* =====================================================
+   RESET IMAGE INFORMATION
+===================================================== */
+
+function resetInformation() {
     const fields = [
         "infoFileName",
         "infoFileSize",
@@ -137,44 +320,28 @@ function resetMetadata() {
         "gpsAltitude"
     ];
 
-    fields.forEach((id) => {
-        setText(id, "—");
-    });
+    fields.forEach((id) => setText(id, "Not available"));
 
-    setText("gpsStatus", "Waiting for image");
-    setText("imageLoadStatus", "Waiting");
-    setText("cameraMetadataStatus", "Waiting");
-    setText("gpsMetadataStatus", "Waiting");
+    setText("gpsStatus", "Checking image metadata...");
+    setText("gpsMetadataStatus", "Checking...");
+    setText("cameraMetadataStatus", "Checking...");
+    setText("imageLoadStatus", "Processing...");
 
     setText(
         "gpsMessage",
-        "GPS information will appear here if the image contains location metadata."
+        "Checking whether GPS coordinates are recorded in this image."
     );
 
-    setText("resultsBadge", "Waiting");
+    setText("resultsBadge", "Analysing");
 
-    mapSection.hidden = true;
-
-    locationMap.src = "about:blank";
-    openMapLink.removeAttribute("href");
+    hideSatelliteMap();
 }
 
+/* =====================================================
+   DISPLAY BASIC INFORMATION
+===================================================== */
 
-/* =========================================
-   STATUS INDICATORS
-   ========================================= */
-
-function showResultsStatus() {
-    resultsBadge.textContent = "Analysed";
-    setText("imageLoadStatus", "Successful");
-}
-
-
-/* =========================================
-   BASIC IMAGE INFORMATION
-   ========================================= */
-
-function displayBasicInformation(file, width, height) {
+function displayBasicInformation(file, image) {
     setText("fileName", file.name);
     setText("fileSize", formatFileSize(file.size));
 
@@ -183,601 +350,494 @@ function displayBasicInformation(file, width, height) {
 
     setText(
         "infoDimensions",
-        width + " × " + height + " pixels"
+        image.naturalWidth + " × " + image.naturalHeight + " pixels"
     );
 
     setText(
         "infoFileType",
-        file.type || "Unknown"
+        file.type || "Unknown image format"
     );
 
     setText(
         "infoModified",
         file.lastModified
-            ? formatDate(new Date(file.lastModified))
+            ? formatCaptureDate(new Date(file.lastModified))
             : "Not available"
     );
 
-    setText("infoBasicOrientation", "See camera metadata");
+    setText(
+        "infoBasicOrientation",
+        image.naturalWidth > image.naturalHeight
+            ? "Landscape"
+            : image.naturalWidth < image.naturalHeight
+                ? "Portrait"
+                : "Square"
+    );
 
-    showResultsStatus();
+    setText("imageLoadStatus", "Image loaded successfully");
 }
 
+/* =====================================================
+   EXIF METADATA ANALYSIS
+===================================================== */
 
-/* =========================================
-   PREVIEW
-   ========================================= */
+async function readImageMetadata(file) {
+    if (typeof window.exifr === "undefined") {
+        throw new Error(
+            "EXIF metadata library did not load. Check your internet connection."
+        );
+    }
 
-function createPreview(file, version) {
-    return new Promise((resolve, reject) => {
-        if (currentObjectURL) {
-            URL.revokeObjectURL(currentObjectURL);
-            currentObjectURL = null;
-        }
+    /*
+      Read GPS and common EXIF fields from the actual
+      uploaded image file.
+    */
 
-        const objectURL = URL.createObjectURL(file);
-
-        currentObjectURL = objectURL;
-
-        const image = new Image();
-
-        image.onload = function () {
-            if (version !== analysisVersion) {
-                URL.revokeObjectURL(objectURL);
-                resolve(null);
-                return;
-            }
-
-            imagePreview.src = objectURL;
-
-            previewSection.hidden = false;
-
-            displayBasicInformation(
-                file,
-                image.naturalWidth,
-                image.naturalHeight
-            );
-
-            resolve({
-                width: image.naturalWidth,
-                height: image.naturalHeight
-            });
-        };
-
-        image.onerror = function () {
-            URL.revokeObjectURL(objectURL);
-
-            if (currentObjectURL === objectURL) {
-                currentObjectURL = null;
-            }
-
-            reject(new Error("Could not decode image."));
-        };
-
-        image.src = objectURL;
+    const metadata = await window.exifr.parse(file, {
+        gps: true,
+        exif: true,
+        tiff: true,
+        ifd0: true
     });
+
+    return metadata || {};
 }
 
+/* =====================================================
+   DISPLAY CAMERA INFORMATION
+===================================================== */
 
-/* =========================================
-   CAMERA METADATA
-   ========================================= */
+function displayCameraInformation(metadata) {
+    const make = metadata.Make || "Not recorded";
+    const model = metadata.Model || "Not recorded";
 
-async function readMetadata(file, version) {
-    if (version !== analysisVersion) return;
+    setText("cameraMake", make);
+    setText("cameraModel", model);
 
-    if (!window.exifr || typeof window.exifr.parse !== "function") {
-        setText(
-            "cameraMetadataStatus",
-            "Metadata library unavailable"
-        );
-
-        setText(
-            "gpsMetadataStatus",
-            "Metadata library unavailable"
-        );
-
-        setText(
-            "gpsStatus",
-            "Cannot read metadata"
-        );
-
-        return;
-    }
-
-    try {
-        const metadata = await window.exifr.parse(file, {
-            gps: true,
-            exif: true,
-            tiff: true,
-            ifd0: true
-        });
-
-        if (version !== analysisVersion) return;
-
-        if (!metadata) {
-            showNoMetadata();
-            return;
-        }
-
-        // Camera manufacturer
-        setText(
-            "cameraMake",
-            metadata.Make || "Not recorded"
-        );
-
-        // Camera model
-        setText(
-            "cameraModel",
-            metadata.Model || "Not recorded"
-        );
-
-        // Capture date
-        const date =
-            metadata.DateTimeOriginal ||
-            metadata.CreateDate ||
-            metadata.ModifyDate;
-
-        setText(
-            "captureDate",
-            date ? formatDate(date) : "Not recorded"
-        );
-
-        // Orientation
-        const orientations = {
-            1: "Normal",
-            2: "Mirrored horizontally",
-            3: "Rotated 180°",
-            4: "Mirrored vertically",
-            5: "Mirrored and rotated",
-            6: "Rotated 90°",
-            7: "Mirrored and rotated",
-            8: "Rotated 270°"
-        };
-
-        setText(
-            "imageOrientation",
-            orientations[metadata.Orientation] ||
-            "Not recorded"
-        );
-
-        setText(
-            "infoBasicOrientation",
-            orientations[metadata.Orientation] ||
-            "Not recorded"
-        );
-
-        // Exposure
-        setText(
-            "exposureTime",
-            metadata.ExposureTime
-                ? metadata.ExposureTime + " seconds"
-                : "Not recorded"
-        );
-
-        // Aperture
-        setText(
-            "aperture",
-            metadata.FNumber
-                ? "f/" + metadata.FNumber
-                : "Not recorded"
-        );
-
-        // ISO
-        setText(
-            "isoValue",
-            metadata.ISO !== undefined
-                ? metadata.ISO
-                : "Not recorded"
-        );
-
-        // Focal length
-        setText(
-            "focalLength",
-            metadata.FocalLength
-                ? metadata.FocalLength + " mm"
-                : "Not recorded"
-        );
-
-        setText(
-            "cameraMetadataStatus",
-            metadata.Make || metadata.Model
-                ? "Camera data found"
-                : "Limited camera data"
-        );
-
-        // GPS
-        handleGPS(metadata);
-
-    } catch (error) {
-        if (version !== analysisVersion) return;
-
-        console.error("Metadata error:", error);
-
-        setText(
-            "cameraMetadataStatus",
-            "Could not read metadata"
-        );
-
-        setText(
-            "gpsMetadataStatus",
-            "Could not read metadata"
-        );
-
-        setText(
-            "gpsStatus",
-            "Metadata reading failed"
-        );
-
-        setText(
-            "gpsMessage",
-            "The image format may not contain readable EXIF data."
-        );
-    }
-}
-
-
-/* =========================================
-   GPS AND MAP
-   ========================================= */
-
-function handleGPS(metadata) {
-    const latitude = metadata.latitude;
-    const longitude = metadata.longitude;
-
-    if (
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude) ||
-        latitude < -90 ||
-        latitude > 90 ||
-        longitude < -180 ||
-        longitude > 180
-    ) {
-        setText(
-            "gpsStatus",
-            "GPS not found"
-        );
-
-        setText(
-            "gpsLatitude",
-            "Not available"
-        );
-
-        setText(
-            "gpsLongitude",
-            "Not available"
-        );
-
-        setText(
-            "gpsAltitude",
-            "Not available"
-        );
-
-        setText(
-            "gpsMetadataStatus",
-            "No GPS coordinates"
-        );
-
-        setText(
-            "gpsMessage",
-            "This image does not contain readable GPS coordinates. The website cannot determine where the photo was taken from the image alone."
-        );
-
-        mapSection.hidden = true;
-
-        locationMap.src = "about:blank";
-
-        openMapLink.removeAttribute("href");
-
-        return;
-    }
-
-    // Display GPS coordinates
-    setText("gpsLatitude", formatCoordinate(latitude));
-
-    setText("gpsLongitude", formatCoordinate(longitude));
-
-    const altitude = metadata.GPSAltitude;
+    const captureDate =
+        parseExifDate(metadata.DateTimeOriginal) ||
+        parseExifDate(metadata.CreateDate) ||
+        parseExifDate(metadata.DateTimeDigitized);
 
     setText(
-        "gpsAltitude",
-        Number.isFinite(altitude)
-            ? altitude.toFixed(1) + " metres"
+        "captureDate",
+        captureDate
+            ? formatCaptureDate(captureDate)
+            : "Capture date not recorded in image metadata"
+    );
+
+    const orientation = metadata.Orientation;
+
+    const orientationNames = {
+        1: "Normal",
+        2: "Mirrored horizontally",
+        3: "Rotated 180°",
+        4: "Mirrored vertically",
+        5: "Mirrored and rotated",
+        6: "Rotated 90°",
+        7: "Mirrored and rotated 90°",
+        8: "Rotated 270°"
+    };
+
+    setText(
+        "imageOrientation",
+        orientationNames[orientation] || "Not recorded"
+    );
+
+    setText(
+        "exposureTime",
+        metadata.ExposureTime !== undefined
+            ? metadata.ExposureTime + " seconds"
             : "Not recorded"
     );
 
     setText(
-        "gpsStatus",
-        "Coordinates found"
+        "aperture",
+        metadata.FNumber !== undefined
+            ? "f/" + metadata.FNumber
+            : "Not recorded"
+    );
+
+    setText(
+        "isoValue",
+        metadata.ISO !== undefined
+            ? metadata.ISO
+            : "Not recorded"
+    );
+
+    setText(
+        "focalLength",
+        metadata.FocalLength !== undefined
+            ? metadata.FocalLength + " mm"
+            : "Not recorded"
+    );
+
+    const hasCameraInfo = Boolean(metadata.Make || metadata.Model);
+
+    setText(
+        "cameraMetadataStatus",
+        hasCameraInfo
+            ? "Camera metadata found"
+            : "Camera information not recorded"
+    );
+}
+
+/* =====================================================
+   DISPLAY GPS INFORMATION
+===================================================== */
+
+function displayGPSInformation(metadata) {
+    let latitude = metadata.latitude;
+    let longitude = metadata.longitude;
+    let altitude = metadata.GPSAltitude;
+
+    /*
+      exifr normally returns metadata.latitude and
+      metadata.longitude when GPS data is available.
+    */
+
+    if (
+        latitude === undefined ||
+        longitude === undefined ||
+        !validCoordinates(latitude, longitude)
+    ) {
+        setText("gpsStatus", "GPS coordinates not available");
+        setText("gpsLatitude", "Not recorded");
+        setText("gpsLongitude", "Not recorded");
+        setText("gpsAltitude", "Not recorded");
+
+        setText(
+            "gpsMetadataStatus",
+            "No usable GPS coordinates found"
+        );
+
+        setText(
+            "gpsMessage",
+            "This image does not contain usable GPS coordinates. " +
+            "The original photo may have been saved without location metadata."
+        );
+
+        hideSatelliteMap();
+        return;
+    }
+
+    setText("gpsStatus", "GPS coordinates found");
+
+    setText("gpsLatitude", latitude.toFixed(7));
+    setText("gpsLongitude", longitude.toFixed(7));
+
+    setText(
+        "gpsAltitude",
+        altitude !== undefined && Number.isFinite(altitude)
+            ? altitude.toFixed(2) + " metres"
+            : "Altitude not recorded"
     );
 
     setText(
         "gpsMetadataStatus",
-        "GPS coordinates found"
+        "GPS coordinates successfully extracted"
     );
 
     setText(
         "gpsMessage",
-        "Coordinates were found in the image metadata. The map shows the recorded coordinates, not independently verified proof of where the photo was taken."
+        "The map below uses the coordinates stored in the image metadata."
     );
 
-    // Show map only when valid coordinates exist.
-    const lat = latitude;
-    const lon = longitude;
-
-    const bbox = [
-        lon - 0.01,
-        lat - 0.01,
-        lon + 0.01,
-        lat + 0.01
-    ].join("%2C");
-
-    const mapURL =
-        "https://www.openstreetmap.org/export/embed.html" +
-        "?bbox=" + bbox +
-        "&layer=mapnik" +
-        "&marker=" + lat + "%2C" + lon;
-
-    locationMap.src = mapURL;
-
-    openMapLink.href =
-        "https://www.openstreetmap.org/?mlat=" +
-        encodeURIComponent(lat) +
-        "&mlon=" +
-        encodeURIComponent(lon) +
-        "#map=16/" +
-        encodeURIComponent(lat) +
-        "/" +
-        encodeURIComponent(lon);
-
-    mapSection.hidden = false;
+    showSatelliteMap(latitude, longitude);
 }
 
-
-function showNoMetadata() {
-    setText("cameraMake", "Not recorded");
-    setText("cameraModel", "Not recorded");
-    setText("captureDate", "Not recorded");
-    setText("imageOrientation", "Not recorded");
-
-    setText("exposureTime", "Not recorded");
-    setText("aperture", "Not recorded");
-    setText("isoValue", "Not recorded");
-    setText("focalLength", "Not recorded");
-
-    setText(
-        "cameraMetadataStatus",
-        "No EXIF metadata"
-    );
-
-    handleGPS({});
-}
-
-
-/* =========================================
-   AUTOMATIC IMAGE ANALYSIS
-   ========================================= */
+/* =====================================================
+   MAIN IMAGE ANALYSIS
+===================================================== */
 
 async function analyseImage(file) {
-    if (!file) return;
-
-    const version = ++analysisVersion;
-
-    // Clear previous object URL and previous results.
-    if (currentObjectURL) {
-        URL.revokeObjectURL(currentObjectURL);
-        currentObjectURL = null;
+    if (!file) {
+        return;
     }
 
-    resetMetadata();
+    if (!file.type || !file.type.startsWith("image/")) {
+        setStatus(
+            "Please select a valid image file.",
+            true
+        );
 
-    setStatus("Loading image...", true);
+        return;
+    }
+
+    currentImageFile = file;
+
+    /*
+      Release the previous image URL to avoid memory leaks.
+    */
+
+    if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+    }
+
+    currentObjectURL = URL.createObjectURL(file);
+
+    resetInformation();
+
+    setStatus("Loading your image...");
+
+    showElement("previewSection", true);
+
+    const preview = $("imagePreview");
+
+    if (!preview) {
+        setStatus(
+            "Image preview element is missing from index.html.",
+            true
+        );
+
+        return;
+    }
+
+    preview.src = currentObjectURL;
+
+    /*
+      Wait for the image to load before reading its dimensions.
+    */
 
     try {
-        const dimensions = await createPreview(file, version);
+        await new Promise((resolve, reject) => {
+            preview.onload = resolve;
 
-        if (!dimensions || version !== analysisVersion) {
-            return;
-        }
+            preview.onerror = () => {
+                reject(new Error("The selected image could not be displayed."));
+            };
+        });
 
-        setStatus("Reading image metadata...", true);
+        displayBasicInformation(file, preview);
 
-        await readMetadata(file, version);
+    } catch (error) {
+        console.error("Image preview error:", error);
 
-        if (version !== analysisVersion) {
-            return;
-        }
+        setStatus(
+            "The image could not be opened. Try a JPG or PNG image.",
+            true
+        );
 
-        loadingSpinner.hidden = true;
+        return;
+    }
 
-        setStatus("Image analysis completed.", false);
+    setStatus("Image loaded. Reading camera and GPS metadata...");
 
-        resultsBadge.textContent = "Complete";
+    try {
+        const metadata = await readImageMetadata(file);
 
-        // Automatically move to the information section.
-        setTimeout(() => {
-            if (version !== analysisVersion) return;
+        displayCameraInformation(metadata);
+        displayGPSInformation(metadata);
 
-            resultsSection.scrollIntoView({
+        setText("resultsBadge", "Analysis complete");
+
+        setStatus(
+            "Analysis complete. Your image information is ready."
+        );
+
+    } catch (error) {
+        console.error("Metadata analysis error:", error);
+
+        setText(
+            "cameraMetadataStatus",
+            "Metadata could not be read"
+        );
+
+        setText(
+            "gpsStatus",
+            "GPS metadata could not be read"
+        );
+
+        setText(
+            "gpsMessage",
+            "The image preview loaded, but its metadata could not be read. " +
+            "Check your internet connection and try a JPG image."
+        );
+
+        setText("resultsBadge", "Partial result");
+
+        hideSatelliteMap();
+
+        setStatus(
+            "Image opened, but metadata analysis failed. " +
+            "Check your connection and try again.",
+            true
+        );
+
+    } finally {
+        /*
+          Jump directly to the information section after
+          upload and analysis.
+        */
+
+        if ($("resultsSection")) {
+            $("resultsSection").scrollIntoView({
                 behavior: "smooth",
                 block: "start"
             });
-        }, 250);
-
-    } catch (error) {
-        if (version !== analysisVersion) return;
-
-        console.error("Image analysis error:", error);
-
-        loadingSpinner.hidden = true;
-
-        setStatus(
-            "Unable to read this image. Try another JPG or PNG file.",
-            false
-        );
-
-        resultsBadge.textContent = "Error";
-
-        setText(
-            "imageLoadStatus",
-            "Image could not be opened"
-        );
+        }
     }
 }
 
+/* =====================================================
+   FILE UPLOAD
+===================================================== */
 
-/* =========================================
-   FILE INPUTS
-   ========================================= */
-
-imageInput.addEventListener("change", async function () {
-    const file = imageInput.files && imageInput.files[0];
-
-    if (file) {
-        await validateAndAnalyse(file);
-    }
-});
-
-
-cameraInput.addEventListener("change", async function () {
-    const file = cameraInput.files && cameraInput.files[0];
+function handleImageSelection(event) {
+    const file =
+        event.target.files && event.target.files[0];
 
     if (file) {
-        await validateAndAnalyse(file);
+        analyseImage(file);
     }
-});
-
-
-/* =========================================
-   CAMERA BUTTON
-   ========================================= */
-
-captureButton.addEventListener("click", function () {
-    cameraInput.click();
-});
-
-
-/* =========================================
-   VALIDATION
-   ========================================= */
-
-async function validateAndAnalyse(file) {
-    if (!file.type.startsWith("image/")) {
-        window.alert("Please select a valid image.");
-
-        imageInput.value = "";
-        cameraInput.value = "";
-
-        return;
-    }
-
-    const maxSize = 30 * 1024 * 1024;
-
-    if (file.size > maxSize) {
-        window.alert(
-            "This image is larger than 30 MB. Please choose a smaller image."
-        );
-
-        imageInput.value = "";
-        cameraInput.value = "";
-
-        return;
-    }
-
-    await analyseImage(file);
 }
 
+/* =====================================================
+   CAMERA CAPTURE
+===================================================== */
 
-/* =========================================
+function openCamera() {
+    const cameraInput = $("cameraInput");
+
+    if (cameraInput) {
+        cameraInput.click();
+    }
+}
+
+/* =====================================================
    REMOVE IMAGE
-   ========================================= */
+===================================================== */
 
-function clearImage() {
-    analysisVersion++;
-
+function removeCurrentImage() {
     if (currentObjectURL) {
         URL.revokeObjectURL(currentObjectURL);
         currentObjectURL = null;
     }
 
-    imageInput.value = "";
-    cameraInput.value = "";
+    currentImageFile = null;
 
-    imagePreview.removeAttribute("src");
+    if ($("imageInput")) {
+        $("imageInput").value = "";
+    }
 
-    previewSection.hidden = true;
+    if ($("cameraInput")) {
+        $("cameraInput").value = "";
+    }
 
-    analysisStatus.hidden = true;
+    if ($("imagePreview")) {
+        $("imagePreview").removeAttribute("src");
+    }
 
-    resetMetadata();
+    showElement("previewSection", false);
 
-    window.scrollTo({
-        top: 0,
-        behavior: "smooth"
-    });
+    hideSatelliteMap();
+
+    resetInformation();
+
+    setText("resultsBadge", "Waiting");
+
+    setStatus("Choose an image to begin analysis.");
 }
 
+/* =====================================================
+   VIEW INFORMATION BUTTON
+===================================================== */
 
-removeImageButton.addEventListener("click", clearImage);
-
-
-/* =========================================
-   VIEW RESULTS BUTTON
-   ========================================= */
-
-viewResultsButton.addEventListener("click", function () {
-    resultsSection.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
-});
-
-
-/* =========================================
-   DRAG AND DROP
-   ========================================= */
-
-uploadArea.addEventListener("dragover", function (event) {
-    event.preventDefault();
-
-    uploadArea.classList.add("drag-over");
-});
-
-
-uploadArea.addEventListener("dragleave", function () {
-    uploadArea.classList.remove("drag-over");
-});
-
-
-uploadArea.addEventListener("drop", async function (event) {
-    event.preventDefault();
-
-    uploadArea.classList.remove("drag-over");
-
-    const files = event.dataTransfer &&
-                  event.dataTransfer.files;
-
-    if (files && files.length > 0) {
-        await validateAndAnalyse(files[0]);
+function scrollToResults() {
+    if ($("resultsSection")) {
+        $("resultsSection").scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
     }
-});
+}
 
+/* =====================================================
+   INITIALISE APPLICATION
+===================================================== */
 
-/* =========================================
-   CLEANUP
-   ========================================= */
+function initialiseNaolAnalyser() {
+    console.log("Naol Analyser initialising...");
 
-window.addEventListener("beforeunload", function () {
-    if (currentObjectURL) {
-        URL.revokeObjectURL(currentObjectURL);
+    const imageInput = $("imageInput");
+    const cameraInput = $("cameraInput");
+    const captureButton = $("captureButton");
+    const removeButton = $("removeImage");
+    const viewResultsButton = $("viewResultsButton");
+    const uploadArea = $("uploadArea");
+
+    if (imageInput) {
+        imageInput.addEventListener(
+            "change",
+            handleImageSelection
+        );
     }
-});
 
+    if (cameraInput) {
+        cameraInput.addEventListener(
+            "change",
+            handleImageSelection
+        );
+    }
 
-/* =========================================
-   INITIALIZE
-   ========================================= */
+    if (captureButton) {
+        captureButton.addEventListener(
+            "click",
+            openCamera
+        );
+    }
 
-resetMetadata();
+    if (removeButton) {
+        removeButton.addEventListener(
+            "click",
+            removeCurrentImage
+        );
+    }
 
-console.log("Naol Analyser is ready.");
+    if (viewResultsButton) {
+        viewResultsButton.addEventListener(
+            "click",
+            scrollToResults
+        );
+    }
+
+    /*
+      Allow tapping the upload area to open the file picker.
+    */
+
+    if (uploadArea && imageInput) {
+        uploadArea.addEventListener("keydown", (event) => {
+            if (
+                event.key === "Enter" ||
+                event.key === " "
+            ) {
+                event.preventDefault();
+                imageInput.click();
+            }
+        });
+    }
+
+    setText("resultsBadge", "Waiting");
+
+    setText(
+        "gpsMessage",
+        "Upload a photo to check for GPS coordinates."
+    );
+
+    setStatus("Ready. Choose a photo to analyse.");
+
+    console.log("Naol Analyser ready.");
+}
+
+/* =====================================================
+   START
+===================================================== */
+
+if (document.readyState === "loading") {
+    document.addEventListener(
+        "DOMContentLoaded",
+        initialiseNaolAnalyser
+    );
+} else {
+    initialiseNaolAnalyser();
+}
